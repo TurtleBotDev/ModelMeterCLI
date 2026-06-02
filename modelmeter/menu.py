@@ -151,9 +151,12 @@ def render_menu_view(
 
 
 def clear_terminal() -> None:
-    """Clear the terminal using the platform shell command."""
+    """Clear the terminal for the interactive menu."""
 
-    os.system("cls" if platform.system() == "Windows" else "clear")
+    if platform.system() == "Windows":
+        os.system("cls")
+        return
+    print("\033[2J\033[H", end="")
 
 
 def text_menu_screen(
