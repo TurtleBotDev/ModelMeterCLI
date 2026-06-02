@@ -1,73 +1,62 @@
-# ModelMeter
+# ModelMeterCLI
 
-ModelMeter is a stdlib-only Python CLI for local Copilot Chat usage pacing.
+ModelMeterCLI is a zero-dependency Python command-line tool for tracking local GitHub Copilot Chat usage in VS Code.
 
-It scans local VS Code Copilot Chat session files, estimates or reads AI credit usage, and reports whether your current reset period is under or over pace for a monthly AI credit budget.
+It scans the Copilot Chat session files already stored on your machine, reads or estimates AI credit usage, and shows whether your current monthly reset period is under or over pace for your budget.
 
-No extension install is required. No `pip install` is required.
+No extension. No API token. No `pip install`. Just Python's standard library.
 
-## Project Shape
+## Why Use It
 
-ModelMeter keeps the executable entry point small and puts the implementation in a focused package:
+Copilot Chat usage can be hard to reason about across projects, models, and reset periods. ModelMeterCLI gives you a local dashboard for:
 
-```text
-modelmeter.py              launcher for `python3 modelmeter.py`
-modelmeter/cli.py          argument parsing and command dispatch
-modelmeter/config.py       platform paths and saved settings
-modelmeter/pricing.py      pricing file parsing and model matching
-modelmeter/sessions.py     VS Code Copilot session discovery and parsing
-modelmeter/periods.py      reset-period and pacing calculations
-modelmeter/render.py       terminal, table, and JSON rendering
-modelmeter/menu.py         interactive terminal menu
-tests/test_modelmeter.py   stdlib unittest coverage for core behavior
-```
+- Current-period AI credit usage
+- Under/over pace status for a monthly budget
+- Projected end-of-period usage
+- Model and workspace breakdowns
+- Unknown model detection with pricing snippets
+- JSON output for scripts and automations
 
-## Run
+All data stays local. ModelMeterCLI does not call GitHub APIs, does not ask for credentials, and does not upload your session files.
+
+## Quick Start
+
+Clone the repo and run:
 
 ```sh
 python3 modelmeter.py
 ```
 
-You can also run the package module directly:
+Or run it as a Python module:
 
 ```sh
 python3 -m modelmeter
 ```
 
-By default, ModelMeter opens an interactive terminal menu and refreshes every 30 seconds.
+By default, ModelMeterCLI opens an interactive terminal menu and refreshes every 30 seconds.
 
-Use arrow keys to move, `Enter` or right arrow to open/select, left arrow to collapse, and `q` to quit.
+Use the arrow keys to move, `Enter` or right arrow to open/select, left arrow to collapse, and `q` to quit.
 
-On macOS/Linux the menu uses Python's built-in `curses`. On Windows it uses Python's built-in `msvcrt`, so no package install is needed there either. Windows Terminal should render the box/logo best; older `cmd.exe` may need UTF-8 enabled:
+## Requirements
+
+- Python 3.10 or newer
+- VS Code with local Copilot Chat session files
+- No third-party Python packages
+
+On macOS and Linux, the interactive menu uses Python's built-in `curses` module. On Windows, it uses Python's built-in `msvcrt` module. Windows Terminal is recommended for the cleanest rendering.
+
+If an older Windows shell has trouble with box drawing characters, enable UTF-8 first:
 
 ```bat
 chcp 65001
 python modelmeter.py
 ```
 
-ModelMeter uses terminal colours for under/over pace when supported. Disable them with:
+## Commands
 
 ```sh
-python3 modelmeter.py --no-color
-```
-
-```sh
-python3 modelmeter.py --interval 30
-python3 modelmeter.py menu --interval 30
-```
-
-For the simpler passive dashboard:
-
-```sh
-python3 modelmeter.py watch
-python3 modelmeter.py watch --interval 30 --no-clear
-```
-
-Useful commands:
-
-```sh
-python3 modelmeter.py watch
 python3 modelmeter.py menu
+python3 modelmeter.py watch
 python3 modelmeter.py summary
 python3 modelmeter.py models --period current
 python3 modelmeter.py models --period previous
@@ -76,42 +65,64 @@ python3 modelmeter.py workspaces --period all
 python3 modelmeter.py unknown
 python3 modelmeter.py json
 python3 modelmeter.py paths
+python3 modelmeter.py init-pricing
 ```
 
-Budget/reset options:
+The passive dashboard is useful when you want a simple refreshing view:
+
+```sh
+python3 modelmeter.py watch
+python3 modelmeter.py watch --interval 60 --no-clear
+```
+
+Disable terminal color when needed:
+
+```sh
+python3 modelmeter.py --no-color
+```
+
+## Budget And Reset Day
+
+Set a monthly AI credit budget and reset day:
 
 ```sh
 python3 modelmeter.py --budget 2500 --reset-day 1
 ```
 
-You can also change these from the interactive menu:
+You can also save these values from the interactive menu:
 
 ```text
 Settings > Set Budget
 Settings > Set Reset Day
 ```
 
-Saved settings live in:
+Saved settings live at:
 
 ```text
 ~/.copilot/modelmeter-settings.json
 ```
 
+Command-line flags override saved settings for that run.
+
 ## Data Source
 
-By default, ModelMeter scans:
+By default, ModelMeterCLI scans VS Code workspace storage:
 
 ```text
 <VS Code User>/workspaceStorage/<workspace>/chatSessions/
 ```
 
-You can point it somewhere else:
+You can point it at another workspace storage directory:
 
 ```sh
 python3 modelmeter.py --workspace-storage "/path/to/workspaceStorage"
 ```
 
-It does not ask for a GitHub token and does not call GitHub APIs.
+Useful path discovery:
+
+```sh
+python3 modelmeter.py paths
+```
 
 ## Pricing
 
@@ -121,24 +132,70 @@ Pricing lives in:
 ~/.copilot/modelmeter-pricing.json
 ```
 
-ModelMeter creates this file if it does not exist.
+ModelMeterCLI creates this file automatically if it does not exist.
 
-To print unknown model JSON snippets:
+When it finds a model that is not in the pricing file, print ready-to-edit JSON snippets with:
 
 ```sh
 python3 modelmeter.py unknown
 ```
 
-## Test
+Pricing is intentionally local and editable because model names and prices can change over time.
 
-ModelMeter uses only Python's built-in `unittest` framework:
+## JSON Output
+
+For scripts, dashboards, or reporting pipelines:
+
+```sh
+python3 modelmeter.py json
+```
+
+The JSON output includes budget settings, current-period pacing metrics, previous-period usage, all-time scanned usage, model breakdowns, workspace breakdowns, and daily credit totals.
+
+## Project Structure
+
+```text
+modelmeter.py              launcher for `python3 modelmeter.py`
+modelmeter/__main__.py     launcher for `python3 -m modelmeter`
+modelmeter/cli.py          argument parsing and command dispatch
+modelmeter/config.py       platform paths and saved settings
+modelmeter/pricing.py      pricing file parsing and model matching
+modelmeter/sessions.py     VS Code Copilot session discovery and parsing
+modelmeter/periods.py      reset-period and pacing calculations
+modelmeter/render.py       terminal, table, and JSON rendering
+modelmeter/menu.py         interactive terminal menu
+modelmeter/models.py       typed data structures
+tests/test_modelmeter.py   stdlib unittest coverage for core behavior
+```
+
+## Development
+
+Run the test suite:
 
 ```sh
 python3 -m unittest discover -s tests
 ```
 
-For a quick syntax check:
+Run a quick syntax check:
 
 ```sh
 python3 -m py_compile modelmeter.py modelmeter/*.py tests/*.py
 ```
+
+ModelMeterCLI is deliberately standard-library-only. Please avoid adding runtime dependencies unless the project direction explicitly changes.
+
+## Privacy
+
+ModelMeterCLI reads local VS Code session files and local configuration files. It does not:
+
+- Send usage data to GitHub
+- Send usage data to OpenAI
+- Require a GitHub token
+- Require an API key
+- Install a VS Code extension
+
+If you publish logs, screenshots, or JSON output, review them first for workspace names or model usage details you consider private.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
