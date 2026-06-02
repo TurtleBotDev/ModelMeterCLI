@@ -22,6 +22,16 @@ All data stays local. ModelMeterCLI does not call GitHub APIs, does not ask for 
 
 ## Quick Start
 
+Download the latest `modelmeter.pyz` from the GitHub releases page, then run:
+
+```sh
+python3 modelmeter.pyz
+```
+
+The `.pyz` file is built with Python's standard-library `zipapp` module. It is a single-file runnable archive, but it still requires Python 3.10 or newer on your machine.
+
+## Source Checkout
+
 Clone the repo and run:
 
 ```sh
@@ -214,6 +224,13 @@ Run a quick syntax check:
 
 ```sh
 python3 -m py_compile modelmeter.py modelmeter/*.py tests/*.py
+```
+
+Build the single-file release artifact:
+
+```sh
+python3 tools/build_zipapp.py
+python3 dist/modelmeter.pyz
 ```
 
 ModelMeterCLI is deliberately standard-library-only. Please avoid adding runtime dependencies unless the project direction explicitly changes.
