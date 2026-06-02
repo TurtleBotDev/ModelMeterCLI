@@ -1,8 +1,8 @@
 # ModelMeterCLI
 
-ModelMeterCLI is a zero-dependency Python command-line tool for tracking local GitHub Copilot Chat usage in VS Code.
+ModelMeterCLI is a zero-dependency Python command-line tool for tracking local GitHub Copilot usage across local editor and CLI data sources.
 
-It scans the Copilot Chat session files already stored on your machine, reads or estimates AI credit usage, and shows whether your current monthly reset period is under or over pace for your budget.
+It scans Copilot usage files already stored on your machine, reads or estimates AI credit usage, and shows whether your current monthly reset period is under or over pace for your budget.
 
 No extension. No API token. No `pip install`. Just Python's standard library.
 
@@ -16,6 +16,7 @@ Copilot Chat usage can be hard to reason about across projects, models, and rese
 - Model and workspace breakdowns
 - Unknown model detection with pricing snippets
 - JSON output for scripts and automations
+- Source-level de-duplication so overlapping logs do not double-count usage
 
 All data stays local. ModelMeterCLI does not call GitHub APIs, does not ask for credentials, and does not upload your session files.
 
@@ -40,7 +41,7 @@ Use the arrow keys to move, `Enter` or right arrow to open/select, left arrow to
 ## Requirements
 
 - Python 3.10 or newer
-- VS Code with local Copilot Chat session files
+- Local Copilot usage files from VS Code and/or Copilot CLI
 - No third-party Python packages
 
 On macOS and Linux, the interactive menu uses Python's built-in `curses` module. On Windows, it uses Python's built-in `msvcrt` module. Windows Terminal is recommended for the cleanest rendering.
@@ -104,25 +105,57 @@ Saved settings live at:
 
 Command-line flags override saved settings for that run.
 
-## Data Source
+## Data Sources
 
-By default, ModelMeterCLI scans VS Code workspace storage:
+By default, ModelMeterCLI scans three local source families:
 
 ```text
-<VS Code User>/workspaceStorage/<workspace>/chatSessions/
+VS Code chatSessions       <VS Code User>/workspaceStorage/<workspace>/chatSessions/
+VS Code debug logs         <VS Code User>/{globalStorage,workspaceStorage}/.../debug-logs/
+Copilot CLI session data   ~/.copilot/session-state/*/events.jsonl
 ```
 
-You can point it at another workspace storage directory:
+VS Code debug logs are the most accurate local source when they include GitHub's recorded AI credit field:
+
+```text
+copilotUsageNanoAiu
+```
+
+To make VS Code write Copilot agent debug events to disk, enable this VS Code setting:
+
+```text
+github.copilot.chat.agentDebugLog.fileLogging.enabled
+```
+
+Copilot CLI data is read from `COPILOT_HOME` when set, otherwise:
+
+```text
+~/.copilot
+```
+
+You can override the detected locations:
 
 ```sh
 python3 modelmeter.py --workspace-storage "/path/to/workspaceStorage"
+python3 modelmeter.py --copilot-home "/path/to/.copilot"
+python3 modelmeter.py --data-path "/extra/local/usage/folder"
 ```
+
+ModelMeterCLI de-duplicates requests across sources by response/session identifiers when present, and by a conservative usage fingerprint otherwise. This is important because the same Copilot request can appear in both a chat session file and a debug log.
 
 Useful path discovery:
 
 ```sh
 python3 modelmeter.py paths
 ```
+
+## Current Coverage
+
+- VS Code / VS Code Insiders: chat session files and Copilot debug log JSON/JSONL files.
+- Copilot CLI: local `session-state` JSONL events that expose token or AI credit fields.
+- Visual Studio, JetBrains/Rider, Xcode: researched but not yet counted unless their logs contain compatible JSON/JSONL usage records and are passed with `--data-path`.
+
+The tool stays intentionally local-first. An authenticated GitHub metrics/API mode would be a separate future feature.
 
 ## Pricing
 
@@ -161,6 +194,7 @@ modelmeter/cli.py          argument parsing and command dispatch
 modelmeter/config.py       platform paths and saved settings
 modelmeter/pricing.py      pricing file parsing and model matching
 modelmeter/sessions.py     VS Code Copilot session discovery and parsing
+modelmeter/sources.py      VS Code debug-log and Copilot CLI source adapters
 modelmeter/periods.py      reset-period and pacing calculations
 modelmeter/render.py       terminal, table, and JSON rendering
 modelmeter/menu.py         interactive terminal menu
@@ -186,7 +220,7 @@ ModelMeterCLI is deliberately standard-library-only. Please avoid adding runtime
 
 ## Privacy
 
-ModelMeterCLI reads local VS Code session files and local configuration files. It does not:
+ModelMeterCLI reads local Copilot session/log files and local configuration files. It does not:
 
 - Send usage data to GitHub
 - Send usage data to OpenAI

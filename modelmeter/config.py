@@ -36,6 +36,12 @@ def modelmeter_dir() -> Path:
     return Path.home() / ".copilot"
 
 
+def copilot_home_dir() -> Path:
+    """Return GitHub Copilot CLI's home directory."""
+
+    return Path(os.environ.get("COPILOT_HOME", Path.home() / ".copilot")).expanduser()
+
+
 def default_pricing_path() -> Path:
     """Return the default pricing file path."""
 

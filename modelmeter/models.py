@@ -60,6 +60,7 @@ class RequestUsage:
     recorded_credits: float | None
     estimated_credits: float | None
     pricing_match: PricingMatch
+    source: str = "unknown"
 
     @property
     def credits(self) -> float:
@@ -72,6 +73,20 @@ class RequestUsage:
         """Return all billable and cached token buckets combined."""
 
         return self.input_tokens + self.cached_input_tokens + self.cache_write_tokens + self.output_tokens
+
+    @property
+    def dedupe_key(self) -> str:
+        """Return a stable key used to prevent cross-source double counting."""
+
+        if self.response_id:
+            return f"response:{self.response_id}"
+        credit = self.recorded_credits if self.recorded_credits is not None else self.estimated_credits
+        return (
+            "usage:"
+            f"{self.timestamp.isoformat()}:{self.workspace}:{self.model}:"
+            f"{self.input_tokens}:{self.cached_input_tokens}:{self.cache_write_tokens}:"
+            f"{self.output_tokens}:{credit}"
+        )
 
 
 @dataclass

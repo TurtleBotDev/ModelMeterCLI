@@ -280,16 +280,22 @@ def render_unknown(summary: Summary) -> str:
     return "\n\n".join(unknown_model_snippet(model) for model in sorted(summary.unknown_models))
 
 
-def render_paths(workspace_storage: object, pricing_path: object, settings_path: object) -> str:
+def render_paths(workspace_storage: object, copilot_home: object, data_paths: list[object], pricing_path: object, settings_path: object) -> str:
     """Render the important filesystem paths used by the app."""
 
-    return "\n".join(
+    lines = [
+        kv_line("Workspace storage", str(workspace_storage)),
+        kv_line("Copilot home", str(copilot_home)),
+    ]
+    if data_paths:
+        lines.append(kv_line("Extra data paths", ", ".join(str(path) for path in data_paths)))
+    lines.extend(
         [
-            kv_line("Workspace storage", str(workspace_storage)),
             kv_line("Pricing file", str(pricing_path)),
             kv_line("Settings file", str(settings_path)),
         ]
     )
+    return "\n".join(lines)
 
 
 def to_json(summary: Summary, periods: Periods, budget: int, reset_day: int, pricing_file: PricingFile) -> str:
@@ -320,6 +326,7 @@ def to_json(summary: Summary, periods: Periods, budget: int, reset_day: int, pri
             "pricingVersion": pricing_file.version,
             "files": summary.files,
             "sessionsWithUsage": summary.sessions_with_usage,
+            "sources": source_counts(summary),
             "currentPeriod": {
                 "start": periods.current_start.isoformat(),
                 "end": periods.current_end.isoformat(),
@@ -335,3 +342,12 @@ def to_json(summary: Summary, periods: Periods, budget: int, reset_day: int, pri
         },
         indent=2,
     )
+
+
+def source_counts(summary: Summary) -> dict[str, int]:
+    """Return request counts grouped by source name."""
+
+    counts: dict[str, int] = {}
+    for request in summary.requests_list:
+        counts[request.source] = counts.get(request.source, 0) + 1
+    return counts

@@ -204,6 +204,7 @@ def build_request_usage(
                 recorded_credits=credits_by_response_id.get(request["response_id"]),
                 estimated_credits=estimate,
                 pricing_match=match,
+                source="vscode-chat-session",
             )
         )
     return requests
@@ -222,12 +223,52 @@ def add_to_breakdowns(total: Totals, request: RequestUsage) -> None:
 def summarize(files: list[SessionFile], pricing_file: PricingFile) -> Summary:
     """Summarize usage across all discovered session files."""
 
-    summary = Summary(files=len(files))
+    requests: list[RequestUsage] = []
+    sessions_with_usage = 0
     for session_file in files:
-        requests = collect_session_usage(session_file, pricing_file)
-        if requests:
-            summary.sessions_with_usage += 1
-        for request in requests:
-            summary.requests_list.append(request)
-            add_to_breakdowns(summary, request)
+        session_requests = collect_session_usage(session_file, pricing_file)
+        if session_requests:
+            sessions_with_usage += 1
+        requests.extend(session_requests)
+    return summarize_requests(requests, files=len(files), sessions_with_usage=sessions_with_usage)
+
+
+def summarize_requests(requests: list[RequestUsage], files: int = 0, sessions_with_usage: int = 0) -> Summary:
+    """Summarize already parsed requests, dropping duplicate usage records."""
+
+    summary = Summary(files=files, sessions_with_usage=sessions_with_usage)
+    for request in dedupe_requests(requests):
+        summary.requests_list.append(request)
+        add_to_breakdowns(summary, request)
     return summary
+
+
+def dedupe_requests(requests: list[RequestUsage]) -> list[RequestUsage]:
+    """Remove duplicate request records across overlapping usage sources."""
+
+    by_key: dict[str, RequestUsage] = {}
+    for request in sorted(requests, key=lambda item: source_priority(item.source)):
+        key = request.dedupe_key
+        existing = by_key.get(key)
+        if existing is None or request_quality(request) > request_quality(existing):
+            by_key[key] = request
+    return sorted(by_key.values(), key=lambda item: item.timestamp)
+
+
+def source_priority(source: str) -> int:
+    """Return ordering priority for source records before quality comparison."""
+
+    priorities = {
+        "vscode-debug-log": 0,
+        "copilot-cli": 1,
+        "vscode-chat-session": 2,
+    }
+    return priorities.get(source, 10)
+
+
+def request_quality(request: RequestUsage) -> tuple[int, int, int]:
+    """Return a quality score for choosing between duplicate records."""
+
+    has_recorded_credits = 1 if request.recorded_credits is not None else 0
+    has_known_model = 0 if request.model == "unknown" else 1
+    return has_recorded_credits, has_known_model, request.total_tokens

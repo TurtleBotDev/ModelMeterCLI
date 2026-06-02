@@ -146,7 +146,7 @@ def render_menu_view(
     if view == "settings":
         return render_settings(args)
     if view == "paths":
-        return render_paths(workspace_storage, pricing_file.path, args.settings.expanduser())
+        return render_paths(workspace_storage, args.copilot_home.expanduser(), [path.expanduser() for path in args.data_path], pricing_file.path, args.settings.expanduser())
     return ""
 
 
