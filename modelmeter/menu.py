@@ -217,8 +217,9 @@ def run_windows_menu(args: argparse.Namespace, snapshot_callback: Any) -> int:
     items = menu_items()
     selected = 0
     active = items[0]
-    last_refresh = 0.0
     summary, periods, _, pricing_file = snapshot_callback(args)
+    last_refresh = time.monotonic()
+    needs_redraw = True
 
     try:
         while True:
@@ -228,9 +229,12 @@ def run_windows_menu(args: argparse.Namespace, snapshot_callback: Any) -> int:
             if now - last_refresh >= args.interval:
                 summary, periods, _, pricing_file = snapshot_callback(args)
                 last_refresh = now
+                needs_redraw = True
 
-            clear_terminal()
-            safe_print(text_menu_screen(items, selected, active, summary, periods, pricing_file, args.workspace_storage.expanduser(), args.interval, False, args))
+            if needs_redraw:
+                clear_terminal()
+                safe_print(text_menu_screen(items, selected, active, summary, periods, pricing_file, args.workspace_storage.expanduser(), args.interval, False, args))
+                needs_redraw = False
 
             deadline = time.monotonic() + min(args.interval, 0.25)
             while time.monotonic() < deadline and not msvcrt.kbhit():
@@ -241,6 +245,7 @@ def run_windows_menu(args: argparse.Namespace, snapshot_callback: Any) -> int:
             key = msvcrt.getwch()
             if key in ("\x00", "\xe0"):
                 selected, active = handle_windows_arrow(msvcrt.getwch(), items, selected, rows, active)
+                needs_redraw = True
                 continue
 
             if key.lower() == "q" or key == "\x1b":
@@ -252,9 +257,10 @@ def run_windows_menu(args: argparse.Namespace, snapshot_callback: Any) -> int:
                 elif item.action:
                     active = prompt_windows_setting(args, item.action, snapshot_callback)
                     summary, periods, _, pricing_file = snapshot_callback(args)
-                    last_refresh = 0.0
+                    last_refresh = time.monotonic()
                 else:
                     active = item
+                needs_redraw = True
     except KeyboardInterrupt:
         print("\nStopped.")
         return 0

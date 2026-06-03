@@ -23,7 +23,7 @@ LOGO = (
     "┃┃┃┏┓┏┫┏┓┃  ┃┃┃┏┓╋┏┓┏┓",
     "┛ ┗┗┛┗┻┗ ┗  ┛ ┗┗ ┗┗ ┛ ",
 )
-BYLINE = "by TurtleBot · v1.2"
+BYLINE = "by TurtleBot · v1.2.1"
 
 DEFAULT_PRICING: dict[str, Any] = {
     "version": "2026-06-02",
